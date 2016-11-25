@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/sidong/speedup/test.cc
+xml_reader.h
+/home/sidong/speedup/xml_reader.h
+iostream
+-
+
+/home/sidong/speedup/xml_reader.h
+string
+-
+map
+-
+sstream
+-
+iostream
+-
+functional
+-
+

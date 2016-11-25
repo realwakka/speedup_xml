@@ -1,0 +1,4 @@
+/home/sidong/speedup/CMakeFiles/rebuild_cache.dir
+/home/sidong/speedup/CMakeFiles/test.dir
+/home/sidong/speedup/CMakeFiles/edit_cache.dir
+/home/sidong/speedup/CMakeFiles/speedup.dir
