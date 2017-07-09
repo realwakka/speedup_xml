@@ -1,1 +1,0 @@
-ubuntu@ip-172-31-12-224.ap-northeast-2.compute.internal.1324:1499496234

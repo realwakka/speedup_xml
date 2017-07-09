@@ -19,47 +19,43 @@
 //   }
 // }
 
-
-class constexpr_str
+class verybig
 {
  public:
-  constexpr constexpr_str()
-      : data_(nullptr),
-        length_(0)
-  {
-    
-  }
-
-  constexpr void setData(const char* data) { data_ = data; }
-  
- private:
-  const char* data_;
-  int length_;
+  constexpr verybig() : value{0,} {}
+  uint64_t value[255];
 };
 
+constexpr verybig func() {
+  verybig one;
+  for( int i=0 ; i<255 ; ++i ) {
+    one.value[i] = 0;
+  }
+  return one;
+}
 
+
+constexpr char xml[] = "<xml></xml>";
 
 int main()
 {
 
-  constexpr_str str;
-  str.setData("sdlfkj");
-  // int v = Test<count("asdf")>::value;
-  // constexpr int v = count("asdf");
-  // printf("%d", v);
-
-  //std::cout << Test<count("asdf")>::value << std::endl;
   constexpr speedup::XMLParser parser;
   //constexpr auto eventlist = parser.parse("<xml></xml>");
-  constexpr auto eventlist = speedup::parseXML("<xml></xml>");
+  constexpr auto eventlist = speedup::GetEventListSize<xml>();
+  //constexpr auto eventlist = speedup::parseXML<"<xml></xml">();
 
-  for(auto i=0 ; i <eventlist.size_ ; ++i ) {
+  std::cout << "list size : " << eventlist.GetSize() << std::endl;
+  for(auto i=0 ; i <eventlist.GetSize() ; ++i ) {
     auto&& event = eventlist.list_[i];
     char str[255];
-    strncpy(str, event.name_, event.name_len_);
-
+    strncpy(str, event.element_.name_, event.element_.name_len_);
+    std::cout << "name len : " << event.element_.name_len_ << std::endl;
+    str[event.element_.name_len_] = 0;
     std::cout << str << std::endl;
   }
+
+  // constexpr auto one = func();
 
   // test
   return 0;
