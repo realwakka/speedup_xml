@@ -2,60 +2,77 @@
 #define XML_PARSER_H_
 
 #include <functional>
+#include <tuple>
+#include <utility>
+#include <string>
 
-namespace speedup {
+#include "conststr.h"
+
+namespace xml_compiler {
 
 enum class EventType
 {
-    kStartElement,
-    kEndElement,
-    kText
+  kStartElement,
+  kEndElement,
+  kText
 };
 
-// class conststr {
-//  public:
-//   template<std::size_t N>
-//   constexpr conststr(const char(&a)[N]): p_(a), sz_(N - 1) {}
+class XMLAttribute
+{
+ public:
+  constexpr XMLAttribute() {}
+  constexpr XMLAttribute(const conststr& key, const conststr& value) : key_(key), value_(value) {}
 
-//   // constexpr functions signal errors by throwing exceptions
-//   // in C++11, they must do so from the conditional operator ?:
-//   constexpr char operator[](std::size_t n) const
-//   {
-//     return n < sz? p[n] : throw std::out_of_range("");
-//   }
-//   constexpr std::size_t size() const { return sz; }
-//  private:
-//   const char* p_;
-//   std::size_t sz_;
+  constexpr conststr GetKey() const { return key_; }
+  constexpr conststr GetValue() const { return value_; }
 
-// };
+ private:
+  conststr key_;
+  conststr value_;
+};
 
-// class XMLAttribute
-// {
-//  private:
-//   conststr key_;
-//   conststr value_;
-// };
+class XMLAttributeList
+{
+ public:
+  constexpr XMLAttributeList() : size_(0) {}
+  constexpr void AddAttribute(const XMLAttribute& attr)
+  {
+    if( size_ < 16 ) {
+      attributes_[size_] = attr;
+      ++size_;
+    }
+  }
 
-// template<std::size_t Size>
-// class XMLAttributeList
-// {
-//  public:
-//   constexpr XMLAttributeList() {}
-//  private:
-//   XMLAttribute attributes_[Size];
-// };
+  constexpr XMLAttribute GetAttribute(std::size_t index) const
+  {
+    return index < size_? attributes_[index] : throw std::out_of_range("");    
+  }
+
+  constexpr std::size_t GetSize() const { return size_; }
+  
+ private:
+  std::size_t size_;
+  XMLAttribute attributes_[16];
+};
 
 class XMLElement
 {
  public:
-  constexpr XMLElement() : name_(nullptr), name_len_(0) {}
-  constexpr XMLElement& operator=(const XMLElement& rhs) { name_ = rhs.name_; name_len_ = rhs.name_len_; }
-  constexpr void CopyFrom(const XMLElement& rhs) { name_ = rhs.name_; name_len_ = rhs.name_len_; }
+  constexpr XMLElement() {}
+  constexpr void AddAttribute(const XMLAttribute& attr)
+  {
+    attr_list_.AddAttribute(attr);
+  }
 
-  const char* name_;
-  int name_len_;
-  //XMLAttributeList<AttrSize> attr_list_;
+  constexpr void SetName( const conststr& name ) { name_ = name;}
+  constexpr conststr GetName() const { return name_;}
+
+  constexpr XMLAttributeList GetAttributeList() const { return attr_list_; }
+
+  
+  conststr name_;
+  XMLAttributeList attr_list_;
+
 };
 
 class Event
@@ -63,8 +80,10 @@ class Event
  public:
   constexpr Event() : Event(EventType::kStartElement){}
   constexpr Event(EventType type) : type_(type){}
-  constexpr void CopyFrom(const Event& event) { type_ = event.type_; element_.CopyFrom(event.element_); }
 
+  constexpr EventType GetType() const { return type_; }
+  constexpr XMLElement GetElement() const { return element_; }
+  
 
  public:
   EventType type_;
@@ -74,15 +93,88 @@ class Event
 class EventList
 {
  public:
-  constexpr EventList() : size_(0){}
-  constexpr void PushEvent(const Event& event);
-  //constexpr void pushEvent(EventType type, const char* name, int name_len);
+  constexpr EventList() : size_(0),
+                          typelist_{EventType::kStartElement,}
+  {}
 
-  constexpr int GetSize() const { return size_; }
- public:
+  constexpr std::size_t GetSize() const { return size_; }
+  constexpr Event GetEvent(std::size_t i) const
+  {
+    return i < size_ ? list_[i] :throw std::out_of_range("");
+  }
+  constexpr void PushEvent(const Event& event);
+
   Event list_[255];
+  EventType typelist_[255];
   int size_;
+
 };
+
+
+
+template<EventType Type>
+class NewEvent;
+
+template<>
+class NewEvent<EventType::kStartElement>
+{
+ public:
+  constexpr NewEvent() {}
+  constexpr void CopyFrom(const Event& event)
+  {
+    element_ = event.element_;
+  }
+
+ public:
+  XMLElement element_;
+  
+};
+
+template<>
+class NewEvent<EventType::kEndElement>
+{
+ public:
+  constexpr NewEvent() {}
+  constexpr void CopyFrom(const Event& event)
+  {
+    element_ = event.element_;
+  }
+ public:
+  XMLElement element_;
+};
+
+
+template<>
+class NewEvent<EventType::kText>
+{
+ public:
+  constexpr NewEvent() {}
+
+};
+
+
+template<EventType Type>
+constexpr void InsertNewEvent(const NewEvent<Type>& event)
+{
+  
+}
+
+template<>
+constexpr void InsertNewEvent<EventType::kStartElement>(const NewEvent<EventType::kStartElement>& event)
+{
+  
+}
+
+template<>
+constexpr void InsertNewEvent<EventType::kEndElement>(const NewEvent<EventType::kEndElement>& event)
+{
+  
+}
+template<>
+constexpr void InsertNewEvent<EventType::kText>(const NewEvent<EventType::kText>& event)
+{
+  
+}
 
 template<std::size_t Size>
 class FixedEventList
@@ -92,6 +184,7 @@ class FixedEventList
   constexpr void CopyFrom(const EventList& event_list);
 
   std::size_t GetSize() const { return Size; }
+  Event GetEvent(std::size_t i) const { return list_[i]; }
   //constexpr void pushEvent(EventType type, const char* name, int name_len);
  public:
   Event list_[Size];
@@ -101,7 +194,7 @@ template<std::size_t Size>
 constexpr void FixedEventList<Size>::CopyFrom(const EventList& event_list)
 {
   for( auto i =0 ; i<Size ; ++i ) {
-    list_[i].CopyFrom(event_list.list_[i]);
+    list_[i] = event_list.list_[i];
   }
 }
 
@@ -109,29 +202,59 @@ constexpr void FixedEventList<Size>::CopyFrom(const EventList& event_list)
 constexpr void EventList::PushEvent(const Event& event)
 {
   if( size_ < 255 ) {
-    list_[size_].CopyFrom(event);
+    list_[size_] = event;
     ++size_;
   }
 }
 
 
-constexpr XMLElement ParseElement(const char* str, int strlen)
+constexpr auto ParseAttribute(const conststr& str)
+{
+  auto tup = strtok(str, '=');
+  auto key = std::get<0>(tup);
+  auto remain = std::get<1>(tup);
+  //auto value = remain.substr(1, remain.size());
+
+  if( remain.size() < 3 ) {
+    return std::make_tuple(conststr(), conststr(), conststr());
+  } else {
+    auto delimiter = remain[1];
+    auto begin = 2;
+    auto end = begin;
+
+    for( ; end<remain.size() ; ++end )
+      if( remain[end] == delimiter )
+        break;
+
+    auto value = remain.substr(begin, end);
+    remain = remain.substr(end, remain.size());
+
+    return std::make_tuple(key, value, remain);
+  }
+}
+
+
+constexpr auto ParseElement(const char* str, int strlen)
 {
   XMLElement element;
-  // const char* qname = str;
-  // int qname_len = 0;
-  // for(auto i = 0 ; i < strlen ; ++i ) {
-  //   if( qname[i] == ' ' ) {
-  //     qname_len = i;
-  //     break;
-  //   }
-  // }
+  conststr cs(str,strlen);
+  auto tup = strtok(cs, ' ');
+  element.SetName(std::get<0>(tup));
+  auto remain = std::get<1>(tup);
+  while(remain.size() > 0) {
+    auto tup = ParseAttribute(remain);
+    auto key = std::get<0>(tup);
+    auto value = std::get<1>(tup);
 
-  // element.name_ = qname;
-  // element.name_len_ = qname_len;
-  element.name_ = str;
-  element.name_len_ = strlen;
-
+    if( key.size() > 0 ) {
+      XMLAttribute attr(std::get<0>(tup), std::get<1>(tup));
+      element.AddAttribute(attr);
+      remain = std::get<2>(tup);
+    } else {
+      break;
+    }
+    
+  }
   return element;
 }
 
@@ -145,6 +268,9 @@ class XMLParser
                           progress_(nullptr)
   {}
   constexpr EventList parse(const char* xml);
+  
+  // template<std::size_t N>
+  // constexpr EventList ParseXML(char (&xml)[N]);
 
  private:
   constexpr void CharOnIdle(char ch);
@@ -208,64 +334,61 @@ constexpr EventList XMLParser::parse(const char* xml)
   return list_;
 }
 
-
-// constexpr auto CreateFixedEventList()
+// template<const char* XML>
+// constexpr auto parseXML()
 // {
-//   FixedEventList<GetEventListSize(> fixedlist;
+//   XMLParser parser;
+//   return  parser.parse(XML);
 // }
-template<const char* XML>
-constexpr auto parseXML()
+
+
+template<std::size_t Index, EventList& list>
+constexpr auto GetEventType()
 {
-  XMLParser parser;
-  return  parser.parse(XML);
+  //constexpr EventList list2 = list;
+  return NewEvent<list.list_[Index].type_>();
+}
+
+template <std::size_t... Is>
+constexpr auto CreateTupleImpl(const EventList& list, std::index_sequence<Is...> ) {
+  return std::make_tuple(list.list_[Is].type_...);
+  //return std::make_tuple(GetEventType<Is>(list)...);
+}
+
+template <std::size_t N>
+constexpr auto CreateTuple(const EventList& list)
+{
+  return CreateTupleImpl(list, std::make_index_sequence<N>{} );
 }
 
 
-template<const char* XML>
-constexpr auto GetEventListSize()
+template<class Tuple, std::size_t... Is>
+constexpr auto CreateTuple2Impl(const Tuple& t, std::index_sequence<Is...>)
 {
-  constexpr auto list = parseXML<XML>();
-  FixedEventList<list.GetSize()> fixed;
-  fixed.CopyFrom(list);
-  return fixed;
+  return std::make_tuple(NewEvent<std::get<Is>(t)>()...);
 }
 
-// constexpr auto parseXML(const char* xml)
-// {
-//   XMLParser parser;
-//   auto list =  parser.parse(xml);
-
-//   return list;
-// }
-
-
-
-// //template<std::size_t Size>
-// constexpr auto parseFixedXML(const char* xml) -> FixedEventList<eventSize(xml)>
-// {
-  
-// }
+template<class... Args>
+constexpr auto CreateTuple2( const std::tuple<Args...>& t )
+{
+  return CreateTuple2Impl(t, std::index_sequence_for<Args...>{});
+}
 
 // template<const char* XML>
-// constexpr EventList parseX()
+// constexpr auto GetFixedEventList()
 // {
-//   XMLParser parser;
-//   return parser.parse(XML);
+//   constexpr EventList list = parseXML<XML>();
+//   FixedEventList<list.size_> fixed;
+//   fixed.CopyFrom(list);
+//   return fixed;
 // }
-
-// template<const char* XML>
-// struct Test
-// {
-//   using result = parseXML(XML);
-// };
-
 
 constexpr void XMLParser::CallStartElement()
 {
   auto element = ParseElement(stream_, stream_len_);
 
   Event event;
-  event.element_.CopyFrom(element);
+  event.element_ = element;
   list_.PushEvent(event);
 
   ClearStream();
@@ -278,7 +401,7 @@ constexpr void XMLParser::CallEndElement()
   auto element = ParseElement(stream_, stream_len_);
 
   Event event(EventType::kEndElement);
-  event.element_.CopyFrom(element);
+  event.element_ = element;
   list_.PushEvent(event);
 
   ClearStream();

@@ -1,63 +1,52 @@
-#include "xml_parser.h"
+//#include "xml_parser.h"
 
 #include <iostream>
 #include <cstring>
 
-// template<int T>
-// struct Test
-// {
-//   static constexpr int value = T;
-// };
+#include <dlfcn.h>
+
+#include "saxhandler.h"
 
 
-// constexpr int count( const char* str ){
-//   auto cnt = 0;
-//   while(true) {
-//     if( str[cnt] == 0 )
-//       return cnt;
-//     cnt++;
-//   }
-// }
+typedef void ParseFunc(xml_compiler::SAXHandler&);
 
-class verybig
+
+class MySAXHandler : public xml_compiler::SAXHandler
 {
- public:
-  constexpr verybig() : value{0,} {}
-  uint64_t value[255];
+  void StartElement(const std::string& name, const xml_compiler::XMLAttributeList& attrs) override
+  {
+    std::cout << "StartElement: " << name << std::endl;
+    for(auto i=0 ; i<attrs.GetSize() ; ++i ) {
+      auto attr = attrs.GetAttribute(i);
+      std::cout << "key: " << attr.GetKey().str() << std::endl;
+      std::cout << "value: " << attr.GetValue().str() << std::endl;
+    }
+  }
+  void EndElement(const std::string& name, const xml_compiler::XMLAttributeList& attrs) override
+  {
+    std::cout << "EndElement: " << name << std::endl;
+    for(auto i=0 ; i<attrs.GetSize() ; ++i ) {
+      auto attr = attrs.GetAttribute(i);
+      std::cout << "key: " << attr.GetKey().str() << std::endl;
+      std::cout << "value: " << attr.GetValue().str() << std::endl;
+    }
+  }
+  void Text(const std::string& text) override
+  {
+    std::cout << "Text: " << text;
+  }
 };
 
-constexpr verybig func() {
-  verybig one;
-  for( int i=0 ; i<255 ; ++i ) {
-    one.value[i] = 0;
-  }
-  return one;
-}
-
-
-constexpr char xml[] = "<xml></xml>";
 
 int main()
 {
-
-  constexpr speedup::XMLParser parser;
-  //constexpr auto eventlist = parser.parse("<xml></xml>");
-  constexpr auto eventlist = speedup::GetEventListSize<xml>();
-  //constexpr auto eventlist = speedup::parseXML<"<xml></xml">();
-
-  std::cout << "list size : " << eventlist.GetSize() << std::endl;
-  for(auto i=0 ; i <eventlist.GetSize() ; ++i ) {
-    auto&& event = eventlist.list_[i];
-    char str[255];
-    strncpy(str, event.element_.name_, event.element_.name_len_);
-    std::cout << "name len : " << event.element_.name_len_ << std::endl;
-    str[event.element_.name_len_] = 0;
-    std::cout << str << std::endl;
-  }
-
-  // constexpr auto one = func();
-
-  // test
+  void* handle = dlopen("./libdefault_parser.so", RTLD_LAZY);
+  auto parse_func = (ParseFunc*)dlsym(handle, "parseDefaultData");
+  
+  MySAXHandler handler;
+  
+  parse_func(handler);
+  dlclose(handle);
   return 0;
 }
                        
